@@ -6,32 +6,38 @@ const router = express.Router();
 
 // GET /report/
 // Lists all report blobs (by name only)
+// GET /report
 router.get('/', async (req, res) => {
   try {
-    const containerName = process.env.AZURE_STORAGE_CONTAINER_NAME;
-    const blobServiceClient = BlobServiceClient.fromConnectionString(process.env.AZURE_STORAGE_CONNECTION_STRING);
-    const containerClient = blobServiceClient.getContainerClient(containerName);
+    const blobs = await listPolicyBlobs('reports/');
 
     const result = [];
 
-    for await (const blob of containerClient.listBlobsFlat({ prefix: 'reports/' })) {
-      const name = blob.name.split('/').pop();
-      if (name.endsWith('.json')) {
-        result.push({
-          report_id: name.replace('.json', ''), // strip extension
-          blob_name: blob.name,
-          last_modified: blob.properties.lastModified,
-        });
+    for (const blobName of blobs) {
+      if (!blobName.endsWith('.json')) continue;
+
+      try {
+        const stream = await downloadBlob(blobName);
+        const chunks = [];
+        for await (const chunk of stream) chunks.push(chunk);
+        const buffer = Buffer.concat(chunks);
+        const json = JSON.parse(buffer.toString('utf-8'));
+        result.push(json);
+      } catch (err) {
+        console.error(`Failed to parse ${blobName}:`, err.message);
       }
     }
 
-    result.sort((a, b) => new Date(b.last_modified) - new Date(a.last_modified));
+    // Sort by generated_at descending
+    result.sort((a, b) => new Date(b.generated_at) - new Date(a.generated_at));
+
     res.json(result);
   } catch (err) {
-    console.error('Error listing report blobs:', err);
-    res.status(500).json({ error: 'Failed to list reports' });
+    console.error('Error listing report blobs:', err.message);
+    res.status(500).json({ error: 'Failed to retrieve reports' });
   }
 });
+
 
 // GET /report/:reportId
 // Downloads and returns full JSON of the report
