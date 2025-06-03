@@ -1,0 +1,93 @@
+{
+  "format_version": "0.1",
+  "resource_changes": [
+    {
+      "address": "aws_instance.bad",
+      "mode": "managed",
+      "type": "aws_instance",
+      "name": "bad",
+      "index": null,
+      "provider_name": "registry.terraform.io/hashicorp/aws",
+      "change": {
+        "actions": ["create"],
+        "before": null,
+        "after": {
+          "ami": "ami-123456",
+          "instance_type": "t2.micro",
+          "tags": {
+            "Name": "bad-instance"
+          }
+        },
+        "after_unknown": {
+          "id": true
+        }
+      }
+    },
+    {
+      "address": "aws_instance.good",
+      "mode": "managed",
+      "type": "aws_instance",
+      "name": "good",
+      "index": null,
+      "provider_name": "registry.terraform.io/hashicorp/aws",
+      "change": {
+        "actions": ["create"],
+        "before": null,
+        "after": {
+          "ami": "ami-123456",
+          "instance_type": "t2.micro",
+          "tags": {
+            "Name": "good-instance"
+          }
+        },
+        "after_unknown": {
+          "id": true
+        }
+      }
+    },
+    {
+      "address": "azurerm_storage_account.demo",
+      "mode": "managed",
+      "type": "azurerm_storage_account",
+      "name": "demo",
+      "index": null,
+      "provider_name": "registry.terraform.io/hashicorp/azurerm",
+      "change": {
+        "actions": ["create"],
+        "before": null,
+        "after": {
+          "name": "mystorage",
+          "resource_group_name": "rg1",
+          "location": "West US",
+          "account_tier": "Standard",
+          "account_replication_type": "LRS",
+          "sku": {
+            "name": "Standard_LRS"
+          }
+        },
+        "after_unknown": {
+          "id": true
+        }
+      }
+    },
+    {
+      "address": "custom_resource.example",
+      "mode": "managed",
+      "type": "custom_resource",
+      "name": "example",
+      "index": null,
+      "provider_name": "registry.terraform.io/my/custom",
+      "change": {
+        "actions": ["create"],
+        "before": null,
+        "after": {
+          "foo": "deny",
+          "bar": "ok"
+        },
+        "after_unknown": {
+          "id": true
+        }
+      }
+    }
+  ]
+}

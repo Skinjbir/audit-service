@@ -1,0 +1,41 @@
+{
+  "resource_changes": [
+    {
+      "type": "azurerm_storage_account",
+      "name": "securestorage",
+      "address": "azurerm_storage_account.securestorage",
+      "change": {
+        "actions": ["create"],
+        "after": {
+          "name": "securestorageacct001",
+          "resource_group_name": "secure-rg",
+          "location": "East US",
+          "account_tier": "Standard",
+          "account_replication_type": "LRS",
+          "enable_https_traffic_only": true,
+          "minimum_tls_version": "TLS1_2",
+          "public_network_access": "Disabled",
+          "allow_blob_public_access": false,
+          "encryption": {
+            "services": {
+              "blob": {
+                "enabled": true
+              }
+            },
+            "key_source": "Microsoft.Keyvault",
+            "key_vault_key_id": "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/secure-rg/providers/Microsoft.KeyVault/vaults/my-keyvault/keys/mykey"
+          },
+          "sas_policy": {
+            "expiration_period": "0.23:59:00"
+          },
+          "blob_properties": {
+            "delete_retention_policy": {
+              "days": 90
+            },
+            "versioning_enabled": true
+          }
+        }
+      }
+    }
+  ]
+}

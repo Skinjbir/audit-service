@@ -1,0 +1,30 @@
+{
+  "name": "pfs-audit",
+  "version": "1.0.0",
+  "main": "index.js",
+  "directories": {
+    "test": "tests"
+  },
+  "scripts": {
+    "audit": "node src/index.js"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "description": "",
+  "dependencies": {
+    "body-parser": "^2.2.0",
+    "chalk": "^5.4.1",
+    "commander": "^14.0.0",
+    "cors": "^2.8.5",
+    "express": "^5.1.0",
+    "fs-extra": "^11.3.0",
+    "jspdf": "^3.0.1",
+    "multer": "^2.0.0",
+    "nodemailer": "^7.0.3",
+    "openai": "^5.0.2",
+    "pdfkit": "^0.17.1",
+    "uuid": "^11.1.0",
+    "winston": "^3.17.0"
+  }
+}

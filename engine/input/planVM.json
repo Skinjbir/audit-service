@@ -1,0 +1,67 @@
+{
+  "resource_changes": [
+    {
+      "type": "azurerm_linux_virtual_machine",
+      "name": "vmlinux01",
+      "address": "azurerm_linux_virtual_machine.vmlinux01",
+      "change": {
+        "actions": ["create"],
+        "after": {
+          "name": "vmlinux01",
+          "location": "East US",
+          "resource_group_name": "rg-vm",
+          "size": "Standard_B2s",
+          "admin_username": "azureuser",
+          "public_ip_address_id": "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg-vm/providers/Microsoft.Network/publicIPAddresses/public-ip",
+          "os_disk": {
+            "caching": "ReadWrite",
+            "storage_account_type": "Premium_LRS"
+          },
+          "identity": null,
+          "boot_diagnostics": {
+            "enabled": false
+          },
+          "security_profile": {
+            "uefi_settings": {
+              "secure_boot_enabled": false
+            }
+          }
+        }
+      }
+    },
+    {
+      "type": "azurerm_windows_virtual_machine",
+      "name": "vmwindows01",
+      "address": "azurerm_windows_virtual_machine.vmwindows01",
+      "change": {
+        "actions": ["create"],
+        "after": {
+          "name": "vmwindows01",
+          "location": "East US",
+          "resource_group_name": "rg-vm",
+          "size": "Standard_B2s",
+          "admin_username": "adminuser",
+          "public_ip_address_id": null,
+          "os_disk": {
+            "caching": "ReadWrite",
+            "storage_account_type": "Standard_LRS",
+            "encryption_settings": {
+              "enabled": true
+            }
+          },
+          "identity": {
+            "type": "SystemAssigned"
+          },
+          "boot_diagnostics": {
+            "enabled": true
+          },
+          "security_profile": {
+            "uefi_settings": {
+              "secure_boot_enabled": true
+            }
+          }
+        }
+      }
+    }
+  ]
+}
