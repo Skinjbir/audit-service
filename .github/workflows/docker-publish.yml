@@ -3,7 +3,7 @@ name: Build & Push Docker Image to Docker Hub
 on:
   push:
     branches:
-      - main  # or 'master' if that's your default branch
+      - main
 
 jobs:
   docker:
@@ -13,6 +13,10 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v3
 
+      - name: Set up commit SHA as image tag
+        id: vars
+        run: echo "TAG=${GITHUB_SHA::7}" >> $GITHUB_ENV
+
       - name: Log in to Docker Hub
         uses: docker/login-action@v3
         with:
@@ -20,7 +24,11 @@ jobs:
           password: ${{ secrets.DOCKER_PASSWORD }}
 
       - name: Build Docker image
-        run: docker build -t ${{ secrets.DOCKER_USERNAME }}/audit-service:latest .
+        run: |
+          docker build -t ${{ secrets.DOCKER_USERNAME }}/audit-service:latest \
+                       -t ${{ secrets.DOCKER_USERNAME }}/audit-service:${{ env.TAG }} .
 
-      - name: Push Docker image
-        run: docker push ${{ secrets.DOCKER_USERNAME }}/audit-service:latest
+      - name: Push Docker images
+        run: |
+          docker push ${{ secrets.DOCKER_USERNAME }}/audit-service:latest
+          docker push ${{ secrets.DOCKER_USERNAME }}/audit-service:${{ env.TAG }}
