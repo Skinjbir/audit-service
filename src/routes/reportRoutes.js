@@ -1,17 +1,14 @@
 const express = require('express');
 const { BlobServiceClient } = require('@azure/storage-blob');
-const { downloadBlob } = require('../services/blobService');
+const { listPolicyBlobs, downloadBlob } = require('../services/blobService');
 
 const router = express.Router();
 
-// GET /report/
-// Lists all report blobs (by name only)
-// GET /report
+// GET /report — List all full JSON reports
 router.get('/', async (req, res) => {
   try {
     const blobs = await listPolicyBlobs('reports/');
-
-    const result = [];
+    const reports = [];
 
     for (const blobName of blobs) {
       if (!blobName.endsWith('.json')) continue;
@@ -22,25 +19,21 @@ router.get('/', async (req, res) => {
         for await (const chunk of stream) chunks.push(chunk);
         const buffer = Buffer.concat(chunks);
         const json = JSON.parse(buffer.toString('utf-8'));
-        result.push(json);
-      } catch (err) {
-        console.error(`Failed to parse ${blobName}:`, err.message);
+        reports.push(json);
+      } catch (error) {
+        console.error(`Error reading/parsing ${blobName}:`, error.message);
       }
     }
 
-    // Sort by generated_at descending
-    result.sort((a, b) => new Date(b.generated_at) - new Date(a.generated_at));
-
-    res.json(result);
+    reports.sort((a, b) => new Date(b.generated_at) - new Date(a.generated_at));
+    res.json(reports);
   } catch (err) {
-    console.error('Error listing report blobs:', err.message);
-    res.status(500).json({ error: 'Failed to retrieve reports' });
+    console.error('Failed to list reports:', err.message);
+    res.status(500).json({ error: 'Failed to fetch reports' });
   }
 });
 
-
-// GET /report/:reportId
-// Downloads and returns full JSON of the report
+// GET /report/:reportId — Return full JSON of one report
 router.get('/:reportId', async (req, res) => {
   const { reportId } = req.params;
   const blobName = `reports/${reportId}.json`;
@@ -48,7 +41,6 @@ router.get('/:reportId', async (req, res) => {
   try {
     const stream = await downloadBlob(blobName);
     const chunks = [];
-
     for await (const chunk of stream) chunks.push(chunk);
     const buffer = Buffer.concat(chunks);
     const json = JSON.parse(buffer.toString('utf-8'));
@@ -60,8 +52,7 @@ router.get('/:reportId', async (req, res) => {
   }
 });
 
-// DELETE /report/:reportId
-// Deletes a report blob by ID
+// DELETE /report/:reportId — Delete a report by blob name
 router.delete('/:reportId', async (req, res) => {
   const { reportId } = req.params;
   const blobName = `reports/${reportId}.json`;
