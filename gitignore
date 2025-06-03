@@ -19,3 +19,6 @@ Thumbs.db
 # Environment and secrets
 .env
 AzuriteConfig
+
+
+.env
