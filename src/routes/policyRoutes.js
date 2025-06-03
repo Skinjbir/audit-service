@@ -10,21 +10,38 @@ if (!fs.existsSync(POLICY_DIR)) {
   fs.mkdirSync(POLICY_DIR, { recursive: true });
 }
 
-// GET /policies
+// GET /policies — Return all policy files with content
 router.get('/', (req, res) => {
-  fs.readdir(POLICY_DIR, (err, files) => {
+  fs.readdir(POLICY_DIR, async (err, files) => {
     if (err) {
       console.error('Error listing policy files:', err.message);
       return res.status(500).json({ error: 'Failed to list policies' });
     }
 
-    const policies = files
-      .filter((file) => file.endsWith('.rego'))
-      .map((file) => ({ name: file, path: path.join(POLICY_DIR, file) }));
+    const policies = [];
+
+    for (const file of files) {
+      if (!file.endsWith('.rego')) continue;
+
+      const filePath = path.join(POLICY_DIR, file);
+      try {
+        const content = fs.readFileSync(filePath, 'utf8');
+        const beautified = content
+          .split('\n')
+          .map(line => line.trimEnd())
+          .join('\n')
+          .trim();
+
+        policies.push({ name: file, content: beautified });
+      } catch (readErr) {
+        console.error(`Failed to read ${file}:`, readErr.message);
+      }
+    }
 
     res.json(policies);
   });
 });
+
 
 // GET /policies/:name
 router.get('/:name', (req, res) => {
