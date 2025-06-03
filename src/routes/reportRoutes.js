@@ -1,103 +1,77 @@
-// src/reportRoutes.js
-
 const express = require('express');
-const fs = require('fs');
-const path = require('path');
+const { BlobServiceClient } = require('@azure/storage-blob');
+const { downloadBlob } = require('../services/blobService');
 
 const router = express.Router();
 
-// Assume all reports are JSON files directly under "./output/"
-const OUTPUT_DIR = path.resolve('output');
-
-// Helper: read & parse a JSON file, return null on parse error
-function safeReadJson(filePath) {
+// GET /report/
+// Lists all report blobs (by name only)
+router.get('/', async (req, res) => {
   try {
-    const raw = fs.readFileSync(filePath, 'utf8');
-    return JSON.parse(raw);
-  } catch {
-    return null;
-  }
-}
+    const containerName = process.env.AZURE_STORAGE_CONTAINER_NAME;
+    const blobServiceClient = BlobServiceClient.fromConnectionString(process.env.AZURE_STORAGE_CONNECTION_STRING);
+    const containerClient = blobServiceClient.getContainerClient(containerName);
 
-// GET /api/reports
-// Returns a list of all reports, each with { report_id, generated_at, source_file, summary }
-router.get('/', (req, res) => {
-  // Ensure OUTPUT_DIR exists
-  if (!fs.existsSync(OUTPUT_DIR)) {
-    return res.json([]); // no reports yet
-  }
+    const result = [];
 
-  // Read all files in OUTPUT_DIR that end with .json
-  const files = fs.readdirSync(OUTPUT_DIR).filter((fn) => fn.endsWith('.json'));
-
-  const result = [];
-  for (const filename of files) {
-    const fullPath = path.join(OUTPUT_DIR, filename);
-    const parsed = safeReadJson(fullPath);
-    if (parsed && typeof parsed.report_id === 'string') {
-      // Only pick the fields we want
-      result.push({
-        report_id: parsed.report_id,
-        generated_at: parsed.generated_at,
-        source_file: parsed.source_file,
-        summary: parsed.summary,
-      });
-    }
-  }
-
-  // Sort by generated_at descending
-  result.sort((a, b) => new Date(b.generated_at) - new Date(a.generated_at));
-
-  return res.json(result);
-});
-
-// GET /api/reports/:reportId
-// Returns the full JSON of the matching report, or 404 if not found
-router.get('/:reportId', (req, res) => {
-  const { reportId } = req.params;
-
-  if (!fs.existsSync(OUTPUT_DIR)) {
-    return res.status(404).json({ error: 'No reports directory found' });
-  }
-
-  // Scan each JSON in OUTPUT_DIR to find matching report_id
-  const files = fs.readdirSync(OUTPUT_DIR).filter((fn) => fn.endsWith('.json'));
-  for (const filename of files) {
-    const fullPath = path.join(OUTPUT_DIR, filename);
-    const parsed = safeReadJson(fullPath);
-    if (parsed && parsed.report_id === reportId) {
-      // Stream the entire file back
-      return res.json(parsed);
-    }
-  }
-
-  return res.status(404).json({ error: `Report ${reportId} not found` });
-});
-
-// DELETE /api/reports/:reportId
-// Deletes the matching report file, returns 204 on success or 404 if not found
-router.delete('/:reportId', (req, res) => {
-  const { reportId } = req.params;
-
-  if (!fs.existsSync(OUTPUT_DIR)) {
-    return res.status(404).json({ error: 'No reports directory found' });
-  }
-
-  const files = fs.readdirSync(OUTPUT_DIR).filter((fn) => fn.endsWith('.json'));
-  for (const filename of files) {
-    const fullPath = path.join(OUTPUT_DIR, filename);
-    const parsed = safeReadJson(fullPath);
-    if (parsed && parsed.report_id === reportId) {
-      try {
-        fs.unlinkSync(fullPath);
-        return res.status(204).end();
-      } catch (err) {
-        return res.status(500).json({ error: 'Failed to delete report' });
+    for await (const blob of containerClient.listBlobsFlat({ prefix: 'reports/' })) {
+      const name = blob.name.split('/').pop();
+      if (name.endsWith('.json')) {
+        result.push({
+          report_id: name.replace('.json', ''), // strip extension
+          blob_name: blob.name,
+          last_modified: blob.properties.lastModified,
+        });
       }
     }
-  }
 
-  return res.status(404).json({ error: `Report ${reportId} not found` });
+    result.sort((a, b) => new Date(b.last_modified) - new Date(a.last_modified));
+    res.json(result);
+  } catch (err) {
+    console.error('Error listing report blobs:', err);
+    res.status(500).json({ error: 'Failed to list reports' });
+  }
+});
+
+// GET /report/:reportId
+// Downloads and returns full JSON of the report
+router.get('/:reportId', async (req, res) => {
+  const { reportId } = req.params;
+  const blobName = `reports/${reportId}.json`;
+
+  try {
+    const stream = await downloadBlob(blobName);
+    const chunks = [];
+
+    for await (const chunk of stream) chunks.push(chunk);
+    const buffer = Buffer.concat(chunks);
+    const json = JSON.parse(buffer.toString('utf-8'));
+
+    res.json(json);
+  } catch (err) {
+    console.error('Error retrieving report blob:', err.message);
+    res.status(404).json({ error: `Report ${reportId} not found` });
+  }
+});
+
+// DELETE /report/:reportId
+// Deletes a report blob by ID
+router.delete('/:reportId', async (req, res) => {
+  const { reportId } = req.params;
+  const blobName = `reports/${reportId}.json`;
+
+  try {
+    const containerName = process.env.AZURE_STORAGE_CONTAINER_NAME;
+    const blobServiceClient = BlobServiceClient.fromConnectionString(process.env.AZURE_STORAGE_CONNECTION_STRING);
+    const containerClient = blobServiceClient.getContainerClient(containerName);
+    const blockBlobClient = containerClient.getBlockBlobClient(blobName);
+
+    await blockBlobClient.deleteIfExists();
+    res.status(204).end();
+  } catch (err) {
+    console.error('Error deleting report blob:', err.message);
+    res.status(500).json({ error: `Failed to delete report ${reportId}` });
+  }
 });
 
 module.exports = router;
