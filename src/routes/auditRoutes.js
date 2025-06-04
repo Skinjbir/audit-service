@@ -1,7 +1,7 @@
 const express = require('express');
 const multer = require('multer');
 const path = require('path');
-const fs = require('fs');
+const fs = require('fs').promises;
 const { auditPlan } = require('../auditEngine');
 const { uploadBlob } = require('../services/blobService');
 
@@ -10,10 +10,10 @@ const router = express.Router();
 // Multer config for .json only
 const upload = multer({
   storage: multer.memoryStorage(),
-  limits: { fileSize: 10 * 1024 * 1024 },
+  limits: { fileSize: 10 * 1024 * 1024 }, // 10MB limit
   fileFilter: (req, file, cb) => {
     if (!file.originalname.toLowerCase().endsWith('.json')) {
-      return cb(new Error('Invalid file type'), false);
+      return cb(new Error('Invalid file type. Only JSON files are allowed.'), false);
     }
     cb(null, true);
   },
@@ -41,10 +41,10 @@ router.post('/audit', upload.single('plan'), async (req, res) => {
     const reportBlobName = `reports/report-${timestamp}.json`;
     tempPath = path.join(tmpDir, `${timestamp}-${originalname}`);
 
-    // Upload original plan file + save to temp
+    // Upload original plan file and save to temp
     const [planBlobUrl] = await Promise.all([
       uploadBlob(planBlobName, buffer),
-      fs.promises.writeFile(tempPath, buffer),
+      fs.writeFile(tempPath, buffer),
     ]);
 
     // Run audit
@@ -55,10 +55,11 @@ router.post('/audit', upload.single('plan'), async (req, res) => {
       report_id: `report-${timestamp}`,
       generated_at: new Date().toISOString(),
       source_file: originalname,
-      summary: { violations: auditResult?.violations?.length || 0 },
-      ...auditResult,
+      summary: auditResult.summary, // Use auditResult.summary directly
+      violations: auditResult.violations,
     };
 
+    // Upload report to Blob Storage
     const reportBuffer = Buffer.from(JSON.stringify(reportWithMeta, null, 2));
     const reportBlobUrl = await uploadBlob(reportBlobName, reportBuffer);
 
@@ -76,9 +77,7 @@ router.post('/audit', upload.single('plan'), async (req, res) => {
     });
   } finally {
     if (tempPath && fs.existsSync(tempPath)) {
-      fs.unlink(tempPath, (err) => {
-        if (err) console.error('Temp file cleanup error:', err);
-      });
+      await fs.unlink(tempPath).catch(err => console.error('Temp file cleanup error:', err));
     }
   }
 });
