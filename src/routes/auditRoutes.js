@@ -5,13 +5,14 @@ const fs = require('fs');
 const fsp = require('fs').promises;
 const { auditPlan } = require('../auditEngine');
 const { uploadBlob } = require('../services/blobService');
+const mailSender = require('../services/mailSender');
 
 const router = express.Router();
 
 // Multer config: Accept only .json files
 const upload = multer({
   storage: multer.memoryStorage(),
-  limits: { fileSize: 10 * 1024 * 1024 }, // 10MB limit
+  limits: { fileSize: 10 * 1024 * 1024 }, // 10MB
   fileFilter: (req, file, cb) => {
     if (!file.originalname.toLowerCase().endsWith('.json')) {
       return cb(new Error('Invalid file type. Only JSON files are allowed.'), false);
@@ -43,32 +44,27 @@ router.post('/audit', upload.single('plan'), async (req, res) => {
     const reportBlobName = `reports/report-${timestamp}.json`;
     tempPath = path.join(tmpDir, `${timestamp}-${originalname}`);
 
-    // Save file locally and upload to blob storage
+    // Save file locally and upload to blob
     const [planBlobUrl] = await Promise.all([
       uploadBlob(planBlobName, buffer),
       fsp.writeFile(tempPath, buffer),
     ]);
 
-    // Run compliance audit
+    // Audit
     const auditResult = await auditPlan(tempPath);
 
-    // Calculate score
     const MAX_SCORE = 100;
     const calculateScore = (violations) => {
       const weights = { high: 10, medium: 5, low: 2, unknown: 1 };
-      let deduction = 0;
-      for (const v of violations) {
+      return Math.max(0, MAX_SCORE - violations.reduce((acc, v) => {
         const sev = (v.severity || 'unknown').toLowerCase();
-        deduction += weights[sev] || 1;
-      }
-      return Math.max(0, MAX_SCORE - deduction);
+        return acc + (weights[sev] || 1);
+      }, 0));
     };
-    const score = calculateScore(auditResult.violations);
 
-    // Determine who triggered the pipeline
+    const score = calculateScore(auditResult.violations);
     const triggeredBy = req.headers['x-user'] || req.body.user || 'unknown';
 
-    // Construct final report
     const reportWithMeta = {
       report_id: `report-${timestamp}`,
       generated_at: new Date().toISOString(),
@@ -97,9 +93,27 @@ router.post('/audit', upload.single('plan'), async (req, res) => {
       }
     };
 
-    // Upload report to Blob Storage
     const reportBuffer = Buffer.from(JSON.stringify(reportWithMeta, null, 2));
     const reportBlobUrl = await uploadBlob(reportBlobName, reportBuffer);
+
+    // Optional: Send email notification
+    const isEmailValid = (email) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+    if (req.body.email && isEmailValid(req.body.email)) {
+      const subject = 'Your Cloud Audit Report is Ready';
+      const html = `
+        <p>Hello,</p>
+        <p>Your audit for <strong>${originalname}</strong> is complete.</p>
+        <p><strong>Score:</strong> ${score}<br/>
+        <strong>Report ID:</strong> ${reportWithMeta.report_id}</p>
+        <p>You can view the report <a href="${reportBlobUrl}">here</a>.</p>
+        <p>Regards,<br/>PFS Audit System</p>
+      `;
+      try {
+        await mailSender.sendEmail(req.body.email, subject, html);
+      } catch (emailErr) {
+        console.warn('Email sending failed:', emailErr.message);
+      }
+    }
 
     res.status(200).json({
       message: 'Audit successful',

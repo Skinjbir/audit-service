@@ -3,6 +3,7 @@ const path = require('path');
 const { evaluatePolicy } = require('./opa.js');
 const groupByType = require('./groupResources');
 const { writeJsonReport } = require('./writeReport');
+const { getRemediationSuggestion } = require('./services/ai'); // DeepSeek integration
 
 async function auditPlan(planFile) {
   const policyRoot = path.resolve('config/policies/azure');
@@ -25,27 +26,38 @@ async function auditPlan(planFile) {
 
   for (const [type, changes] of Object.entries(grouped)) {
     const policyPkg = `terraform.azure.${type.replaceAll('.', '_')}`;
-    changes.forEach((res, idx) => {
+
+    for (const [idx, res] of changes.entries()) {
       const inputForOPA = { resource_changes: [res] };
 
       try {
         const violations = evaluatePolicy(policyRoot, inputForOPA, policyPkg);
-        if (violations.length) {
-          violations.forEach(v => {
-            allViolations.push({
-              resource_type: type,
-              resource_name: res.address || `unnamed-${type}-${idx + 1}`,
-              message: typeof v === 'object' ? v.message || JSON.stringify(v) : v,
-              severity: typeof v === 'object' ? v.severity || 'unknown' : 'unknown',
-              control: typeof v === 'object' ? v.control || 'N/A' : 'N/A',
-              rule_id: typeof v === 'object' ? v.rule_id || null : null
-            });
-          });
+
+        for (const v of violations) {
+          const violation = {
+            resource_type: type,
+            resource_name: res.address || `unnamed-${type}-${idx + 1}`,
+            message: typeof v === 'object' ? v.message || JSON.stringify(v) : v,
+            severity: typeof v === 'object' ? v.severity || 'unknown' : 'unknown',
+            control: typeof v === 'object' ? v.control || 'N/A' : 'N/A',
+            rule_id: typeof v === 'object' ? v.rule_id || null : null
+          };
+
+          // 🔐 AI-based remediation with error handling
+          try {
+            violation.remediation = await getRemediationSuggestion(violation);
+          } catch (err) {
+            console.warn(`[AI ERROR] Failed remediation for ${violation.resource_name}: ${err.message}`);
+            violation.remediation = 'AI remediation unavailable due to internal error.';
+          }
+
+          allViolations.push(violation);
         }
+
       } catch (err) {
         throw new Error(`Error evaluating ${type}: ${err.message}`);
       }
-    });
+    }
   }
 
   const report = {
@@ -62,9 +74,7 @@ async function auditPlan(planFile) {
   };
 
   writeJsonReport(allViolations, 'audit-report.json', planFile);
-
   return report;
 }
 
 module.exports = { auditPlan };
-
