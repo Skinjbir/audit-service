@@ -4,6 +4,40 @@ const { listPolicyBlobs, downloadBlob } = require('../services/blobService');
 
 const router = express.Router();
 
+// Default value helpers
+const ensureReportShape = (json) => {
+  const now = new Date().toISOString();
+
+  // Add default metadata
+  json.metadata = {
+    ...json.metadata,
+    triggered_by: json.metadata?.triggered_by || "unknown",
+    created_by: json.metadata?.created_by || "unknown",
+    last_updated: json.metadata?.last_updated || now,
+    audit_id: json.metadata?.audit_id || json.report_id || "unknown",
+    plan_blob_url: json.metadata?.plan_blob_url || "",
+    report_blob_url: json.metadata?.report_blob_url || ""
+  };
+
+  // Add summary shape
+  json.summary = {
+    owner: json.summary?.owner || "Unassigned",
+    duration: json.summary?.duration || null,
+    tags: json.summary?.tags || [],
+    notes: json.summary?.notes || null
+  };
+
+  // Normalize score and status
+  json.score = json.score ?? 100;
+  json.status = json.status || "Completed";
+
+  // Findings and remediation steps
+  json.findings = json.findings || json.violations || [];
+  json.remediation_steps = json.remediation_steps || [];
+
+  return json;
+};
+
 // GET /report — List all full JSON reports
 router.get('/', async (req, res) => {
   try {
@@ -19,7 +53,7 @@ router.get('/', async (req, res) => {
         for await (const chunk of stream) chunks.push(chunk);
         const buffer = Buffer.concat(chunks);
         const json = JSON.parse(buffer.toString('utf-8'));
-        reports.push(json);
+        reports.push(ensureReportShape(json));
       } catch (error) {
         console.error(`Error reading/parsing ${blobName}:`, error.message);
       }
@@ -45,7 +79,7 @@ router.get('/:reportId', async (req, res) => {
     const buffer = Buffer.concat(chunks);
     const json = JSON.parse(buffer.toString('utf-8'));
 
-    res.json(json);
+    res.json(ensureReportShape(json));
   } catch (err) {
     console.error('Error retrieving report blob:', err.message);
     res.status(404).json({ error: `Report ${reportId} not found` });

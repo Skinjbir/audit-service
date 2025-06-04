@@ -1,0 +1,27 @@
+{
+  "report_id": "0cfe5102-f998-483c-80f4-aae2b5953a18",
+  "generated_at": "2025-06-04T15:09:23.873Z",
+  "source_file": "1749049763725-plan.json",
+  "summary": {
+    "total_violations": 1,
+    "by_severity": {
+      "high": 1,
+      "medium": 0,
+      "low": 0,
+      "unknown": 0
+    }
+  },
+  "controls": [
+    "ISO 27001: A.13.1.1"
+  ],
+  "violations": [
+    {
+      "resource_type": "azurerm_storage_account",
+      "resource_name": "azurerm_storage_account.securestorage",
+      "message": "Storage Account must be integrated with a private endpoint (ISO 27001: A.13.1.1, NIST AC-4, SC-7).",
+      "severity": "high",
+      "control": "ISO 27001: A.13.1.1",
+      "rule_id": "RULE-005"
+    }
+  ]
+}

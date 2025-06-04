@@ -1,13 +1,14 @@
 const express = require('express');
 const multer = require('multer');
 const path = require('path');
-const fs = require('fs').promises;
+const fs = require('fs');
+const fsp = require('fs').promises;
 const { auditPlan } = require('../auditEngine');
 const { uploadBlob } = require('../services/blobService');
 
 const router = express.Router();
 
-// Multer config for .json only
+// Multer config: Accept only .json files
 const upload = multer({
   storage: multer.memoryStorage(),
   limits: { fileSize: 10 * 1024 * 1024 }, // 10MB limit
@@ -19,7 +20,7 @@ const upload = multer({
   },
 });
 
-// Ensure tmp directory exists
+// Ensure /tmp directory exists
 const tmpDir = path.join(__dirname, '../../tmp');
 if (!fs.existsSync(tmpDir)) {
   fs.mkdirSync(tmpDir, { recursive: true });
@@ -34,6 +35,7 @@ router.post('/audit', upload.single('plan'), async (req, res) => {
   }
 
   let tempPath;
+
   try {
     const { originalname, buffer } = req.file;
     const timestamp = Date.now();
@@ -41,22 +43,58 @@ router.post('/audit', upload.single('plan'), async (req, res) => {
     const reportBlobName = `reports/report-${timestamp}.json`;
     tempPath = path.join(tmpDir, `${timestamp}-${originalname}`);
 
-    // Upload original plan file and save to temp
+    // Save file locally and upload to blob storage
     const [planBlobUrl] = await Promise.all([
       uploadBlob(planBlobName, buffer),
-      fs.writeFile(tempPath, buffer),
+      fsp.writeFile(tempPath, buffer),
     ]);
 
-    // Run audit
+    // Run compliance audit
     const auditResult = await auditPlan(tempPath);
 
-    // Prepare metadata-wrapped report
+    // Calculate score
+    const MAX_SCORE = 100;
+    const calculateScore = (violations) => {
+      const weights = { high: 10, medium: 5, low: 2, unknown: 1 };
+      let deduction = 0;
+      for (const v of violations) {
+        const sev = (v.severity || 'unknown').toLowerCase();
+        deduction += weights[sev] || 1;
+      }
+      return Math.max(0, MAX_SCORE - deduction);
+    };
+    const score = calculateScore(auditResult.violations);
+
+    // Determine who triggered the pipeline
+    const triggeredBy = req.headers['x-user'] || req.body.user || 'unknown';
+
+    // Construct final report
     const reportWithMeta = {
       report_id: `report-${timestamp}`,
       generated_at: new Date().toISOString(),
       source_file: originalname,
-      summary: auditResult.summary, // Use auditResult.summary directly
-      violations: auditResult.violations,
+      score,
+      status: "Completed",
+      summary: {
+        ...auditResult.summary,
+        owner: "Unassigned",
+        duration: null,
+        tags: req.body.tags ? req.body.tags.split(',').map(t => t.trim()) : [],
+        notes: null
+      },
+      findings: auditResult.violations,
+      remediation_steps: [],
+      metadata: {
+        triggered_by: triggeredBy,
+        created_by: triggeredBy,
+        last_updated: new Date().toISOString(),
+        audit_id: `report-${timestamp}`,
+        plan_blob_url: planBlobName,
+        report_blob_url: reportBlobName,
+        audited_by: 'PFS-AuditEngine',
+        iso_scope: 'ISO/IEC 27001 Annex A',
+        rgpd_scope: 'Articles 25, 32'
+      }
     };
 
     // Upload report to Blob Storage
@@ -67,17 +105,18 @@ router.post('/audit', upload.single('plan'), async (req, res) => {
       message: 'Audit successful',
       planBlobUrl,
       reportBlobUrl,
-      report: reportWithMeta,
+      report: reportWithMeta
     });
+
   } catch (err) {
     console.error('Audit processing error:', err);
     res.status(500).json({
       error: 'Audit processing failed',
-      details: err.message,
+      details: err.message
     });
   } finally {
     if (tempPath && fs.existsSync(tempPath)) {
-      await fs.unlink(tempPath).catch(err => console.error('Temp file cleanup error:', err));
+      fsp.unlink(tempPath).catch(err => console.error('Temp file cleanup error:', err));
     }
   }
 });

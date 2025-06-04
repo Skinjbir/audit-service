@@ -1,0 +1,62 @@
+{
+  "report_id": "1524fb02-f749-4706-a410-cca69e3bd187",
+  "generated_at": "2025-06-04T15:04:37.927Z",
+  "source_file": "1749049477046-plan2.json",
+  "summary": {
+    "total_violations": 5,
+    "by_severity": {
+      "high": 5,
+      "medium": 0,
+      "low": 0,
+      "unknown": 0
+    }
+  },
+  "controls": [
+    "ISO 27001: A.10.1.1",
+    "ISO 27001: A.13.1.1",
+    "ISO 27001: A.13.2.1",
+    "NIST SC-12"
+  ],
+  "violations": [
+    {
+      "resource_type": "azurerm_storage_account",
+      "resource_name": "azurerm_storage_account.insecurestorage",
+      "message": "Storage Account must use a customer-managed key (ISO 27001: A.10.1.1, CIS Azure 3.8, NIST SC-12(3)).",
+      "severity": "high",
+      "control": "ISO 27001: A.10.1.1",
+      "rule_id": "RULE-003"
+    },
+    {
+      "resource_type": "azurerm_storage_account",
+      "resource_name": "azurerm_storage_account.insecurestorage",
+      "message": "Storage Account must be integrated with a private endpoint (ISO 27001: A.13.1.1, NIST AC-4, SC-7).",
+      "severity": "high",
+      "control": "ISO 27001: A.13.1.1",
+      "rule_id": "RULE-005"
+    },
+    {
+      "resource_type": "azurerm_storage_account",
+      "resource_name": "azurerm_storage_account.insecurestorage",
+      "message": "Storage Account must not allow public network access (ISO 27001: A.13.1.1, CIS Azure 3.5, NIST AC-3).",
+      "severity": "high",
+      "control": "ISO 27001: A.13.1.1",
+      "rule_id": "RULE-004"
+    },
+    {
+      "resource_type": "azurerm_storage_account",
+      "resource_name": "azurerm_storage_account.insecurestorage",
+      "message": "Storage Account must enforce HTTPS traffic (ISO 27001: A.13.2.1, CIS Azure 3.4, NIST SC-12).",
+      "severity": "high",
+      "control": "ISO 27001: A.13.2.1",
+      "rule_id": "RULE-001"
+    },
+    {
+      "resource_type": "azurerm_storage_account",
+      "resource_name": "azurerm_storage_account.insecurestorage",
+      "message": "Storage Account must enforce TLS 1.2 or higher (ISO 27001: A.13.2.1, NIST SC-12).",
+      "severity": "high",
+      "control": "NIST SC-12",
+      "rule_id": "RULE-002"
+    }
+  ]
+}
