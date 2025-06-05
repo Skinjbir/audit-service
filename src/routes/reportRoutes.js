@@ -4,47 +4,40 @@ const { listPolicyBlobs, downloadBlob } = require('../services/blobService');
 
 const router = express.Router();
 
-// Default value helpers
+// 🔧 Helper : Normalise la structure des rapports
 const ensureReportShape = (json) => {
   const now = new Date().toISOString();
 
-  // Add default metadata
-  json.metadata = {
-    ...json.metadata,
-    triggered_by: json.metadata?.triggered_by || "unknown",
-    created_by: json.metadata?.created_by || "unknown",
-    last_updated: json.metadata?.last_updated || now,
-    audit_id: json.metadata?.audit_id || json.report_id || "unknown",
-    plan_blob_url: json.metadata?.plan_blob_url || "",
-    report_blob_url: json.metadata?.report_blob_url || ""
+  return {
+    ...json,
+    metadata: {
+      triggered_by: json.metadata?.triggered_by || "unknown",
+      created_by: json.metadata?.created_by || "unknown",
+      last_updated: json.metadata?.last_updated || now,
+      audit_id: json.metadata?.audit_id || json.report_id || "unknown",
+      plan_blob_url: json.metadata?.plan_blob_url || "",
+      report_blob_url: json.metadata?.report_blob_url || ""
+    },
+    summary: {
+      owner: json.summary?.owner || "Unassigned",
+      duration: json.summary?.duration || null,
+      tags: json.summary?.tags || [],
+      notes: json.summary?.notes || null
+    },
+    score: json.score ?? 100,
+    status: json.status || "Completed",
+    findings: json.findings || json.violations || [],
+    remediation_steps: json.remediation_steps || []
   };
-
-  // Add summary shape
-  json.summary = {
-    owner: json.summary?.owner || "Unassigned",
-    duration: json.summary?.duration || null,
-    tags: json.summary?.tags || [],
-    notes: json.summary?.notes || null
-  };
-
-  // Normalize score and status
-  json.score = json.score ?? 100;
-  json.status = json.status || "Completed";
-
-  // Findings and remediation steps
-  json.findings = json.findings || json.violations || [];
-  json.remediation_steps = json.remediation_steps || [];
-
-  return json;
 };
 
-// GET /report — List all full JSON reports
+// 📄 GET /report — Lister tous les rapports
 router.get('/', async (req, res) => {
   try {
-    const blobs = await listPolicyBlobs('reports/');
+    const blobNames = await listPolicyBlobs('reports/');
     const reports = [];
 
-    for (const blobName of blobs) {
+    for (const blobName of blobNames) {
       if (!blobName.endsWith('.json')) continue;
 
       try {
@@ -52,22 +45,22 @@ router.get('/', async (req, res) => {
         const chunks = [];
         for await (const chunk of stream) chunks.push(chunk);
         const buffer = Buffer.concat(chunks);
-        const json = JSON.parse(buffer.toString('utf-8'));
-        reports.push(ensureReportShape(json));
-      } catch (error) {
-        console.error(`Error reading/parsing ${blobName}:`, error.message);
+        const reportJson = JSON.parse(buffer.toString('utf-8'));
+        reports.push(ensureReportShape(reportJson));
+      } catch (err) {
+        console.error(`⚠️ Erreur lecture/parsing ${blobName} :`, err.message);
       }
     }
 
     reports.sort((a, b) => new Date(b.generated_at) - new Date(a.generated_at));
-    res.json(reports);
+    res.status(200).json(reports);
   } catch (err) {
-    console.error('Failed to list reports:', err.message);
+    console.error('❌ Échec de récupération des rapports :', err.message);
     res.status(500).json({ error: 'Failed to fetch reports' });
   }
 });
 
-// GET /report/:reportId — Return full JSON of one report
+// 📄 GET /report/:reportId — Récupérer un rapport
 router.get('/:reportId', async (req, res) => {
   const { reportId } = req.params;
   const blobName = `reports/${reportId}.json`;
@@ -77,30 +70,33 @@ router.get('/:reportId', async (req, res) => {
     const chunks = [];
     for await (const chunk of stream) chunks.push(chunk);
     const buffer = Buffer.concat(chunks);
-    const json = JSON.parse(buffer.toString('utf-8'));
+    const reportJson = JSON.parse(buffer.toString('utf-8'));
 
-    res.json(ensureReportShape(json));
+    res.status(200).json(ensureReportShape(reportJson));
   } catch (err) {
-    console.error('Error retrieving report blob:', err.message);
+    console.error(`❌ Rapport non trouvé (${reportId}) :`, err.message);
     res.status(404).json({ error: `Report ${reportId} not found` });
   }
 });
 
-// DELETE /report/:reportId — Delete a report by blob name
+// 🗑️ DELETE /report/:reportId — Supprimer un rapport
 router.delete('/:reportId', async (req, res) => {
   const { reportId } = req.params;
   const blobName = `reports/${reportId}.json`;
 
   try {
-    const containerName = process.env.AZURE_STORAGE_CONTAINER_NAME;
-    const blobServiceClient = BlobServiceClient.fromConnectionString(process.env.AZURE_STORAGE_CONNECTION_STRING);
-    const containerClient = blobServiceClient.getContainerClient(containerName);
+    const blobServiceClient = BlobServiceClient.fromConnectionString(
+      process.env.AZURE_STORAGE_CONNECTION_STRING
+    );
+    const containerClient = blobServiceClient.getContainerClient(
+      process.env.AZURE_STORAGE_CONTAINER_NAME
+    );
     const blockBlobClient = containerClient.getBlockBlobClient(blobName);
 
     await blockBlobClient.deleteIfExists();
     res.status(204).end();
   } catch (err) {
-    console.error('Error deleting report blob:', err.message);
+    console.error(`❌ Échec suppression rapport ${reportId} :`, err.message);
     res.status(500).json({ error: `Failed to delete report ${reportId}` });
   }
 });
