@@ -8,8 +8,18 @@ const router = express.Router();
 const ensureReportShape = (json) => {
   const now = new Date().toISOString();
 
+  // 🔁 Synchronisation findings <-> violations
+  const findings = (json.findings && json.findings.length > 0)
+    ? json.findings
+    : (json.violations || []);
+
+  // 🧱 Rebuild normalized report
   return {
     ...json,
+    findings,
+    remediation_steps: json.remediation_steps || [],
+    score: json.score ?? 100,
+    status: json.status || "Completed",
     metadata: {
       triggered_by: json.metadata?.triggered_by || "unknown",
       created_by: json.metadata?.created_by || "unknown",
@@ -22,12 +32,10 @@ const ensureReportShape = (json) => {
       owner: json.summary?.owner || "Unassigned",
       duration: json.summary?.duration || null,
       tags: json.summary?.tags || [],
-      notes: json.summary?.notes || null
-    },
-    score: json.score ?? 100,
-    status: json.status || "Completed",
-    findings: json.findings || json.violations || [],
-    remediation_steps: json.remediation_steps || []
+      notes: json.summary?.notes || null,
+      total_violations: findings.length,
+      ...(json.summary || {})
+    }
   };
 };
 

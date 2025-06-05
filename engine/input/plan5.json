@@ -1,0 +1,40 @@
+{
+  "resource_changes": [
+    {
+      "type": "azurerm_storage_account",
+      "name": "insecurestorage",
+      "address": "azurerm_storage_account.insecurestorage",
+      "change": {
+        "actions": ["create"],
+        "after": {
+          "name": "insecurestorageacct001",
+          "resource_group_name": "insecure-rg",
+          "location": "East US",
+          "account_tier": "Standard",
+          "account_replication_type": "LRS",
+          "enable_https_traffic_only": false,
+          "minimum_tls_version": "TLS1_0",
+          "public_network_access": "Enabled",
+          "allow_blob_public_access": false,
+          "encryption": {
+            "services": {
+              "blob": {
+                "enabled": true
+              }
+            },
+            "key_source": "Microsoft.Storage"
+          },
+          "sas_policy": {
+            "expiration_period": "1.01:00:00"
+          },
+          "blob_properties": {
+            "delete_retention_policy": {
+              "days": 0
+            },
+            "versioning_enabled": false
+          }
+        }
+      }
+    }
+  ]
+}
