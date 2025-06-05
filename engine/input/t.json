@@ -1,0 +1,58 @@
+{
+  "format_version": "0.1",
+  "terraform_version": "1.6.0",
+  "planned_values": {
+    "root_module": {
+      "resources": [
+        {
+          "address": "aws_s3_bucket.example",
+          "mode": "managed",
+          "type": "aws_s3_bucket",
+          "name": "example",
+          "provider_name": "registry.terraform.io/hashicorp/aws",
+          "values": {
+            "bucket": "my-example-bucket",
+            "acl": "private",
+            "force_destroy": false,
+            "versioning": {
+              "enabled": true
+            },
+            "logging": {
+              "target_bucket": "my-logs-bucket",
+              "target_prefix": "log/"
+            },
+            "tags": {
+              "Environment": "dev",
+              "Owner": "alice"
+            }
+          }
+        }
+      ]
+    }
+  },
+  "resource_changes": [
+    {
+      "address": "aws_s3_bucket.example",
+      "change": {
+        "actions": ["create"],
+        "before": null,
+        "after": {
+          "bucket": "my-example-bucket",
+          "acl": "private",
+          "force_destroy": false,
+          "versioning": {
+            "enabled": true
+          },
+          "logging": {
+            "target_bucket": "my-logs-bucket",
+            "target_prefix": "log/"
+          },
+          "tags": {
+            "Environment": "dev",
+            "Owner": "alice"
+          }
+        }
+      }
+    }
+  ]
+}

@@ -1,0 +1,16 @@
+{
+  "report_id": "9ead255f-0163-4015-9859-27160efa551c",
+  "generated_at": "2025-06-05T01:51:07.860Z",
+  "source_file": "1749088266756-t.json",
+  "summary": {
+    "total_violations": 0,
+    "by_severity": {
+      "high": 0,
+      "medium": 0,
+      "low": 0,
+      "unknown": 0
+    }
+  },
+  "controls": [],
+  "violations": []
+}
