@@ -108,5 +108,25 @@ router.delete('/:reportId', async (req, res) => {
     res.status(500).json({ error: `Failed to delete report ${reportId}` });
   }
 });
+// 🧨 DELETE /report — Supprimer tous les rapports
+router.delete('/', async (req, res) => {
+  try {
+    const blobServiceClient = BlobServiceClient.fromConnectionString(process.env.AZURE_STORAGE_CONNECTION_STRING);
+    const containerClient = blobServiceClient.getContainerClient(process.env.AZURE_STORAGE_CONTAINER_NAME);
+
+    const blobNames = await listPolicyBlobs('reports/');
+    const toDelete = blobNames.filter(name => name.endsWith('.json'));
+
+    for (const name of toDelete) {
+      const blockBlobClient = containerClient.getBlockBlobClient(name);
+      await blockBlobClient.deleteIfExists();
+    }
+
+    res.status(204).end();
+  } catch (err) {
+    console.error('❌ Échec suppression de tous les rapports :', err.message);
+    res.status(500).json({ error: 'Failed to delete all reports' });
+  }
+});
 
 module.exports = router;

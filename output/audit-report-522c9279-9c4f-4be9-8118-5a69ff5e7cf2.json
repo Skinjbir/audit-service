@@ -1,7 +1,7 @@
 {
-  "report_id": "8d8ddb54-9122-43c0-bfbc-c3d06c02757f",
-  "generated_at": "2025-06-04T15:17:52.567Z",
-  "source_file": "1749050271961-plan2.json",
+  "report_id": "522c9279-9c4f-4be9-8118-5a69ff5e7cf2",
+  "generated_at": "2025-06-05T03:38:11.568Z",
+  "source_file": "1749094688955-plan2.json",
   "summary": {
     "total_violations": 5,
     "by_severity": {
